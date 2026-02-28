@@ -105,8 +105,8 @@ col3.metric("Indian Physical 999 (Live INR/KG)", f"{live_indian:.2f}")
 st.divider()
 
 col4, col5 = st.columns(2)
-col4.metric("USDINR Yesterday Close", f"{usd_last_close:.2f}")
-col5.metric("USDINR Live", f"{usd_live:.2f}", f"{usd_diff:.2f}")
+col4.metric("Dollar Yesterday Close", f"{usd_last_close:.2f}")
+col5.metric("Dollar Live", f"{usd_live:.2f}", f"{usd_diff:.2f}")
 
 # ----------------------------------
 # MONTE CARLO (Indian Physical)
