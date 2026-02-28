@@ -63,7 +63,7 @@ OUNCES_PER_KG = 32.1507
 INDIAN_MARKET_PREMIUM = 0.07127 
 
 # ----------------------------------
-# LOAD DATA 
+# LOAD DATA
 # ----------------------------------
 @st.cache_data(ttl=3600)
 def fetch_current_market_data(): 
@@ -179,7 +179,7 @@ def run_prophet_ai_forecast(df):
     future_trading_days = future_only[future_only['ds'].dt.weekday < 5].head(10)
 
     result = future_trading_days[["ds", "yhat"]].copy()
-    result["Forecast"] = result["yhat"].round(0)
+    result["Forecast"] = result["yhat"].round(2)
     result["Date"] = result["ds"].dt.strftime("%d %b %Y")
 
     return result
@@ -191,23 +191,23 @@ with st.spinner("Training Organic Multi-Stage AI Models..."):
 # METRICS DISPLAY (4 COLUMNS)
 # ----------------------------------
 def hl_html_inr(high_val, low_val):
-    return f"<div class='high-low-text'><span class='hl-green'>🔼 High: ₹{high_val:,.0f}</span> &nbsp;|&nbsp; <span class='hl-red'>🔽 Low: ₹{low_val:,.0f}</span></div>"
+    return f"<div class='high-low-text'><span class='hl-green'>🔼 High: ₹{high_val:,.2f}</span> &nbsp;|&nbsp; <span class='hl-red'>🔽 Low: ₹{low_val:,.2f}</span></div>"
 
 c1, c2, c3, c4 = st.columns(4)
 
 # 1. Indian Market
-c1.metric("Indian Market Rate", f"₹{actual_current_price:,.0f}")
+c1.metric("Indian Market Rate", f"₹{actual_current_price:,.2f}")
 c1.markdown(hl_html_inr(daily_highs['Ind'], daily_lows['Ind']), unsafe_allow_html=True)
 
 # 2. US Market (Base INR/KG)
-c2.metric("US Market Rate", f"₹{us_price:,.0f}")
+c2.metric("US Market Rate", f"₹{us_price:,.2f}")
 c2.markdown(hl_html_inr(daily_highs['US'], daily_lows['US']), unsafe_allow_html=True)
 
 # 3. Live USD/INR Rate
-c3.metric("Live USD/INR Rate", f"₹{live_usd:,.3f}", f"{usd_delta:,.3f}")
+c3.metric("Live USD/INR Rate", f"₹{live_usd:,.2f}", f"{usd_delta:,.2f}")
 
 # 4. AI Simulated Ticker
-c4.metric("AI Simulated Ticker", f"₹{simulated_ticker_price:,.0f}", f"{simulated_ticker_delta:,.0f} (vs Actual)")
+c4.metric("AI Simulated Ticker", f"₹{simulated_ticker_price:,.2f}", f"{simulated_ticker_delta:,.2f} (vs Actual)")
 
 st.caption("💡 **Indian Market Rate**: Real-world price (INR/KG). | **US Market**: Converted Base (INR/KG). | **AI Simulated Ticker**: Live weekend prediction reacting to global macro volatility.")
 
@@ -266,5 +266,5 @@ def highlight_signal(val):
 display_columns = ["Date", "Forecast", "Signal", "Confidence (%)"]
 display_df = forecast_next10.set_index("No.")[display_columns]
 
-styled_table = display_df.style.format({"Forecast": "₹{:,.0f}", "Confidence (%)": "{:.1f}%"}).map(highlight_signal, subset=["Signal"])
+styled_table = display_df.style.format({"Forecast": "₹{:,.2f}", "Confidence (%)": "{:.1f}%"}).map(highlight_signal, subset=["Signal"])
 st.dataframe(styled_table, use_container_width=True)
