@@ -8,43 +8,53 @@ from datetime import datetime
 import pytz
 from streamlit_autorefresh import st_autorefresh
 
-# -------------------------------------------------
+# ----------------------------------
 # PAGE CONFIG
-# -------------------------------------------------
-st.set_page_config(layout="wide")
+# ----------------------------------
+st.set_page_config(layout="wide", page_title="Silver AI Dashboard")
 
-# -------------------------------------------------
-# CUSTOM STYLING (Readability Boost)
-# -------------------------------------------------
+# ----------------------------------
+# AUTO REFRESH (60 sec)
+# ----------------------------------
+st_autorefresh(interval=60000, key="live_refresh")
+
+# ----------------------------------
+# CUSTOM CSS (Better Readability)
+# ----------------------------------
 st.markdown("""
 <style>
-.big-font { font-size:28px !important; font-weight:600; }
-.metric-label { font-size:16px !important; color:#bbb; }
-.section-title { font-size:26px !important; font-weight:700; margin-top:30px; }
-.sub-section { font-size:20px !important; font-weight:600; margin-top:20px; }
-.table-title { font-size:22px !important; font-weight:700; margin-top:30px; }
+.main-title {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+.section-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-top: 35px;
+}
+.stMetric {
+    background-color: #111;
+    padding: 15px;
+    border-radius: 10px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<div class='big-font'>Silver 999 (1KG) Live + AI Forecast Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div class='main-title'>Silver 999 (1KG) AI Forecast Dashboard</div>", unsafe_allow_html=True)
 
-# -------------------------------------------------
-# AUTO REFRESH (60 sec)
-# -------------------------------------------------
-st_autorefresh(interval=60000, key="live_refresh")
+TOTAL_EXTRA = 0.05
 
-TOTAL_EXTRA = 0.05  # 5% Indian loading
-
-# -------------------------------------------------
+# ----------------------------------
 # TIME
-# -------------------------------------------------
+# ----------------------------------
 ist = pytz.timezone("Asia/Kolkata")
 now = datetime.now(ist)
 st.caption(f"Last Updated: {now.strftime('%d %b %Y | %I:%M:%S %p IST')}")
 
-# -------------------------------------------------
-# DAILY DATA (Cached)
-# -------------------------------------------------
+# ----------------------------------
+# LOAD DAILY DATA (Cached)
+# ----------------------------------
 @st.cache_data(ttl=3600)
 def load_daily_data():
     silver = yf.download("SI=F", period="365d", interval="1d")["Close"]
@@ -61,9 +71,9 @@ def load_daily_data():
 
 df_daily = load_daily_data()
 
-# -------------------------------------------------
+# ----------------------------------
 # LIVE DATA
-# -------------------------------------------------
+# ----------------------------------
 silver_live = yf.download("SI=F", period="2d", interval="1m")["Close"]
 usdinr_live = yf.download("INR=X", period="2d", interval="1m")["Close"]
 
@@ -82,10 +92,10 @@ usd_last_close = df_daily["USDINR"].iloc[-1]
 usd_live = df_live["USDINR"].iloc[-1]
 usd_diff = usd_live - usd_last_close
 
-# -------------------------------------------------
-# LIVE METRICS
-# -------------------------------------------------
-st.markdown("<div class='section-title'>🌍 Live Market Rates</div>", unsafe_allow_html=True)
+# ----------------------------------
+# LIVE SECTION
+# ----------------------------------
+st.markdown("<div class='section-title'>Live Market Rates</div>", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 col1.metric("International (Daily Close INR/KG)", f"{daily_price:.2f}")
@@ -98,15 +108,10 @@ col4, col5 = st.columns(2)
 col4.metric("USDINR Yesterday Close", f"{usd_last_close:.2f}")
 col5.metric("USDINR Live", f"{usd_live:.2f}", f"{usd_diff:.2f}")
 
-if now.weekday() < 5:
-    st.success("● LIVE MARKET DATA")
-else:
-    st.warning("Weekend – Futures Market Closed")
-
-# -------------------------------------------------
-# MONTE CARLO
-# -------------------------------------------------
-st.markdown("<div class='section-title'>🎯 Monte Carlo Risk Model (Indian Physical 999)</div>", unsafe_allow_html=True)
+# ----------------------------------
+# MONTE CARLO (Indian Physical)
+# ----------------------------------
+st.markdown("<div class='section-title'>Monte Carlo Risk Model</div>", unsafe_allow_html=True)
 
 returns = df_daily["Indian_Physical_INR_KG"].pct_change().dropna()
 mu = returns.mean()
@@ -115,14 +120,13 @@ S0 = df_daily["Indian_Physical_INR_KG"].iloc[-1]
 
 simulations = 1000
 days = 10
-
 paths = np.zeros((days, simulations))
 
 for i in range(simulations):
     price = S0
     for d in range(days):
         shock = np.random.normal(mu, sigma)
-        price = price * (1 + shock)
+        price *= (1 + shock)
         paths[d, i] = price
 
 mc_final = paths[-1]
@@ -135,9 +139,9 @@ colA.metric("Expected Price (10 Days)", f"{expected_price:.2f}")
 colB.metric("Probability Up (%)", f"{prob_up:.1f}")
 colC.metric("Probability Down (%)", f"{prob_down:.1f}")
 
-# -------------------------------------------------
+# ----------------------------------
 # PROPHET FORECAST
-# -------------------------------------------------
+# ----------------------------------
 @st.cache_data(ttl=3600)
 def generate_forecast(df):
     df_prophet = df.reset_index()[["Date", "Indian_Physical_INR_KG"]]
@@ -153,13 +157,13 @@ def generate_forecast(df):
     result["Forecast"] = result["yhat"].round(2)
     result["Date"] = result["ds"].dt.strftime("%d %b %Y")
 
-    result.reset_index(drop=True, inplace=True)
-    result.index += 1
-
     return result
 
 forecast_next10 = generate_forecast(df_daily)
 
+# ----------------------------------
+# SIGNAL LOGIC
+# ----------------------------------
 forecast_next10["Change"] = forecast_next10["Forecast"].diff()
 
 def signal(x):
@@ -176,58 +180,64 @@ forecast_next10["Confidence (%)"] = (
     abs(forecast_next10["Change"]) / (sigma * S0) * 100
 ).round(1)
 
-best_index = forecast_next10["Forecast"].idxmin()
-best_day = forecast_next10.loc[best_index, "Date"]
-best_price = forecast_next10.loc[best_index, "Forecast"]
+forecast_next10.reset_index(drop=True, inplace=True)
+forecast_next10.insert(0, "No.", range(1, 11))
 
-st.markdown(f"<div class='sub-section'>🏆 Best Day To Buy: <b>{best_day}</b> at ₹{best_price:.2f}</div>", unsafe_allow_html=True)
-
-# -------------------------------------------------
+# ----------------------------------
 # CHART
-# -------------------------------------------------
-st.markdown("<div class='section-title'>📈 Indian Physical Silver Trend & 10-Day Forecast</div>", unsafe_allow_html=True)
+# ----------------------------------
+st.markdown("<div class='section-title'>Indian Physical Trend & Forecast</div>", unsafe_allow_html=True)
 
 fig = go.Figure()
 
 fig.add_trace(go.Scatter(
     x=df_daily.tail(10).index,
     y=df_daily.tail(10)["Indian_Physical_INR_KG"],
-    name="Last 10 Days",
-    line=dict(color="purple", width=3)
+    name="Last 10 Days"
 ))
 
 fig.add_trace(go.Scatter(
     x=forecast_next10["ds"],
     y=forecast_next10["Forecast"],
     name="Forecast",
-    line=dict(color="orange", width=3, dash="dash")
+    line=dict(dash="dash")
 ))
 
 fig.update_layout(
     template="plotly_dark",
-    height=500
+    height=450,
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.25,
+        xanchor="center",
+        x=0.5
+    ),
+    margin=dict(t=40, b=100)
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-# -------------------------------------------------
+# ----------------------------------
 # TABLE
-# -------------------------------------------------
-st.markdown("<div class='table-title'>📊 10-Day Forecast Summary</div>", unsafe_allow_html=True)
+# ----------------------------------
+st.markdown("<div class='section-title'>10-Day Forecast Summary</div>", unsafe_allow_html=True)
 
 def highlight_signal(val):
     if val == "BUY":
-        return "background-color:#14532d;color:white;font-weight:600;"
+        return "background-color:#166534;color:white;font-weight:600;"
     elif val == "SELL":
-        return "background-color:#7f1d1d;color:white;font-weight:600;"
+        return "background-color:#991b1b;color:white;font-weight:600;"
     else:
-        return "background-color:#78350f;color:white;font-weight:600;"
+        return "background-color:#854d0e;color:white;font-weight:600;"
 
 styled_table = forecast_next10[
-    ["Date", "Forecast", "Signal", "Confidence (%)"]
+    ["No.", "Date", "Forecast", "Signal", "Confidence (%)"]
 ].style.format({
     "Forecast": "{:.2f}",
     "Confidence (%)": "{:.1f}"
 }).applymap(highlight_signal, subset=["Signal"])
 
 st.write(styled_table)
+
+st.caption("⚠ Educational tool only. Not financial advice.")
