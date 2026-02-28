@@ -236,8 +236,6 @@ def calculate_confidence(predicted_price):
 forecast_next10["Signal"] = forecast_next10["Forecast"].apply(determine_signal)
 forecast_next10["Confidence (%)"] = forecast_next10["Forecast"].apply(calculate_confidence)
 
-forecast_next10.insert(0, "No.", range(1, 11))
-
 # ----------------------------------
 # CHART & TABLE
 # ----------------------------------
@@ -264,7 +262,11 @@ def highlight_signal(val):
     else: return "background-color:#854d0e;color:white;font-weight:600;"
 
 display_columns = ["Date", "Forecast", "Signal", "Confidence (%)"]
-display_df = forecast_next10.set_index("No.")[display_columns]
+display_df = forecast_next10[display_columns]
 
-styled_table = display_df.style.format({"Forecast": "₹{:,.2f}", "Confidence (%)": "{:.1f}%"}).map(highlight_signal, subset=["Signal"])
-st.dataframe(styled_table, use_container_width=True)
+try:
+    styled_table = display_df.style.hide(axis="index").format({"Forecast": "₹{:,.2f}", "Confidence (%)": "{:.1f}%"}).map(highlight_signal, subset=["Signal"])
+except AttributeError:
+    styled_table = display_df.style.hide_index().format({"Forecast": "₹{:,.2f}", "Confidence (%)": "{:.1f}%"}).applymap(highlight_signal, subset=["Signal"])
+
+st.dataframe(styled_table, use_container_width=True, hide_index=True)
