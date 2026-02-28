@@ -5,3 +5,4 @@ numpy
 plotly
 prophet
 pytz
+streamlit-autorefresh
